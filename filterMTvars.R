@@ -1,6 +1,6 @@
 library(MTseeker)
 
-#' sanitize mitochondrial variant calls to a moderate degree
+#' sanitize PASSing mitochondrial variant calls to a moderate degree
 #'
 #' @param vars 	an MVRanges or MVRangesList (will be unlisted and relisted)
 #' @param fp 	standard issue false positive filters? (TRUE: use Triska & RSRS)
@@ -23,9 +23,13 @@ filterMTvars <- function(vars, fp=TRUE, NuMT=0.03, covg=20) {
     fpFilter <- GRanges("chrM", IRanges(start=1, end=16569), strand="*")
   } 
 
-  stop("not finished yet") 
+  if (is(vars, "MVRanges")) {
+    subset(subsetByOverlaps(vars, fpFilter), VAF >= NuMT & PASS)
+  } else if (is(vars, "MVRangesList")) {
+    MVRangesList(lapply(vars[coverage(vars)>=covg], 
+                        filterMTvars, fp=fp, NuMT=NuMT))
+  } else { 
+    stop("This function is only meant for MVRanges and MVRangesList objects.")
+  }
 
 }
-
-
-
