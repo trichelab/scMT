@@ -1,4 +1,5 @@
 library(MTseeker)
+message("This function is now part of MTseeker; use that version instead!") 
 
 #' sanitize PASSing mitochondrial variant calls to a moderate degree
 #'
@@ -10,15 +11,19 @@ library(MTseeker)
 #' @return	a filtered set of variants 
 #' 
 #' @import 	GenomicRanges
+#'
+#' @examples
+#' library(MTseekerData)
+#' filterMTvars(RONKSvariants)
 #' 
 #' @export 
 filterMTvars <- function(vars, fp=TRUE, NuMT=0.03, covg=20) {
 
   if (fp) { 
-    data(fpFilter_RSRS, package="MTseeker")  
+#    data(fpFilter_RSRS, package="MTseeker")  
     data(fpFilter_Triska, package="MTseeker")
-    fpRegions <- reduce(c(fpFilter_RSRS, fpFilter_Triska))
-    fpFilter <- subset(gaps(fpRegions), strand == "*")
+#    fpRegions <- reduce(c(fpFilter_RSRS, fpFilter_Triska))
+    fpFilter <- subset(gaps(fpFilter_Triska), strand == "*")
   } else { 
     fpFilter <- GRanges("chrM", IRanges(start=1, end=16569), strand="*")
   } 
