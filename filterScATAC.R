@@ -6,7 +6,8 @@ library(MTseeker)
 
 # preloaded & called using MTseeker::getMT and MTseeker::callMT
 # note: reloading & recalling with renamed BAMs for easier labeling
-scATAC <- readRDS("scATACvariants.rds")
+#scATAC <- readRDS("scATACvariants.rds")
+scATAC <- scMT <- readRDS("~/Dropbox/scMT/scMTvars.rds")
 
 # mask common FP sites per Triska methods
 ffpStarts <- c(302, 513, 3105)
@@ -21,7 +22,7 @@ fpFilter <- subset(gaps(fpFilter_Triska), strand=="*")
 
 # limit to high-quality calls in regions not commonly subject to false positives
 filteredScATAC <- filt(MVRangesList(lapply(scATAC, subsetByOverlaps, fpFilter)))
-LSCATAC <- filteredScATAC[grep("singles-SU", names(filteredScATAC))]
+LSCATAC <- filteredScATAC[grep("SU", names(filteredScATAC))]
 
 # find variants with low population heteroplasmy and high cellular heteroplasmy
 variants <- sort(table(Reduce(c, lapply(LSCATAC, names))))
@@ -47,12 +48,17 @@ for (subject in names(LSCVAFs)) {
   VAFs[ names(LSCVAFs[[subject]]), subject] <- LSCVAFs[[subject]]
 }
 
+# plotting support 
+library(circlize) 
+library(ComplexHeatmap) 
+source("labelAnnotations.R")
+
 # annotate 
 covs <- data.frame(
   Patient=sub("SU070", "Patient1", 
               sub("SU353", "Patient2", 
-                  sapply(strsplit(colnames(VAFs), "\\-"), `[`, 2))),
-  Fraction=sub("Leuk", "Blast", sapply(strsplit(colnames(VAFs), "\\-"), `[`, 3))
+                  sapply(strsplit(colnames(VAFs), "\\_"), `[`, 1))),
+  Fraction=sub("Leuk", "Blast", sapply(strsplit(colnames(VAFs), "\\_"), `[`, 2))
 )
 colour <- list(
   Patient=c("Patient1"="lightblue", "Patient2"="springgreen"),
@@ -61,8 +67,6 @@ colour <- list(
 anno <- HeatmapAnnotation(covs, col=colour)
 
 # plot 
-library(ComplexHeatmap) 
-source("labelAnnotations.R")
 Heatmap(VAFs, name="VAF", row_names_side="left", show_column_names=FALSE,
         clustering_distance_columns="manhattan",
         clustering_method_columns="ward.D2",
@@ -96,14 +100,13 @@ allVAFs <- allVAFs[which((rowSums(allVAFs)/ncol(allVAFs)) < 0.5 |
                          (rowSums(allVAFs > 0 | allVAFs < 1) > 1)),]
 # mt deletions skeeve me out
 # allVAFs <- allVAFs[!grepl("del", rownames(allVAFs)), ] 
-allSubjs <- apply(sapply(strsplit(colnames(allVAFs), "\\-"), `[`, 1:2), 
+allSubjs <- apply(sapply(strsplit(colnames(allVAFs), "\\_"), `[`, 1:2), 
                   2, paste, collapse="_")
-allSubjs <- sub("singles_SU070", "Patient1_AML", 
-                sub("singles_SU353", "Patient2_AML", 
-                    sub("singles_Donor1", "Donor1_PB",
-                        sub("PB1022", "Donor1",
-                            sub("BM1077", "Donor2", 
-                                allSubjs)))))
+allSubjs <- sub("SU070", "Patient1_AML", 
+                sub("SU353", "Patient2_AML", 
+                    sub("PB1022", "Donor1",
+                        sub("BM1077", "Donor2", 
+                            allSubjs))))
 topCovs <- data.frame(Leukemic=ifelse(grepl("Patient",allSubjs),"Yes","No"))
 botCovs <- data.frame(Subject=sapply(strsplit(allSubjs, "_"), `[`, 1))
 allCols <- list(
@@ -123,34 +126,6 @@ labelAnnotations(topAnno, botAnno)
 
 # save the output 
 dev.copy2pdf(file="scATAC.VAFs.allSubjects.HighQualityFiltered.pdf") 
-
-# add in some filtration from RSRS (Behar)
-data(fpFilter_RSRS, package="MTseeker") 
-# R> fpFilter_RSRS
-# GRanges object with 18 ranges and 3 metadata columns:
-#           seqnames    ranges strand |        RSRS        rCRS          L0
-#              <Rle> <IRanges>  <Rle> | <character> <character> <character>
-#     C146T     chrM       146      * |           C           T        <NA>
-#     C182T     chrM       182      * |           C           T        <NA>
-#     G263A     chrM       263      * |           G        <NA>           A
-#    G1048T     chrM      1048      * |           G        <NA>           T
-#    C3516a     chrM      3516      * |           C        <NA>           a
-#    T4312C     chrM      4312      * |           T           C        <NA>
-#    T5442C     chrM      5442      * |           T        <NA>           C
-#    T6185C     chrM      6185      * |           T        <NA>           C
-#    C9042T     chrM      9042      * |           C        <NA>           T
-#    A9347G     chrM      9347      * |           A        <NA>           G
-#   G10589A     chrM     10589      * |           G        <NA>           A
-#   T10664C     chrM     10664      * |           T           C        <NA>
-#   C10915T     chrM     10915      * |           C           T        <NA>
-#   A11914G     chrM     11914      * |           A           G        <NA>
-#   G12007A     chrM     12007      * |           G        <NA>           A
-#   A12720G     chrM     12720      * |           A        <NA>           G
-#   G13276A     chrM     13276      * |           G           A        <NA>
-#   G16230A     chrM     16230      * |           G           A        <NA>
-#   -------
-#   seqinfo: 1 sequence (1 circular) from rCRS genome
-
 
 # Suggestion from Xiaowu: focus on indels in coding regions / LoF variants
 # 
@@ -232,4 +207,96 @@ screenVars <- getVars(SU353sc_consensus) %union%
 
 # So it seems like the thing to do is to sweep out common variants from each
 # and then plot like before
+scFilt <- sapply(filterMT(scMT), function(x) x[!names(x) %in% screenVars])
+
+allOtherVariants <- Reduce(union, sapply(scFilt, names))
+VAFcalls <- data.frame(matrix(0, 
+                              nrow=length(allOtherVariants), 
+                              ncol=length(scFilt)))
+colnames(VAFcalls) <- names(scFilt)
+rownames(VAFcalls) <- allOtherVariants
+for (subject in names(scFilt)) { 
+  hasVAF <- intersect(names(scFilt[[subject]]), rownames(VAFcalls))
+  VAFcalls[hasVAF, subject] <- mcols(scFilt[[subject]][hasVAF])$VAF
+}
+
+# mt deletions skeeve me out
+# VAFcalls <- VAFcalls[!grepl("del", rownames(VAFcalls)), ] 
+allSubjs <- apply(sapply(strsplit(colnames(VAFcalls), "\\_"), `[`, 1:2), 
+                  2, paste, collapse="_")
+allSubjs <- sub("SU070", "Patient1_AML", 
+                sub("SU353", "Patient2_AML", 
+                    sub("PB1022", "Donor1",
+                        sub("BM1077", "Donor2", 
+                            allSubjs))))
+# more screening 
+inMostCells <- function(mvrl, cutoff=0.5) { 
+  MAF <- sort(table(do.call(c, sapply(mvrl, names))))/length(mvrl)
+  names(which(MAF > cutoff))
+}
+majority <- union(inMostCells(PB1022sc, 0.2), inMostCells(BM1077sc, 0.2))
+minority <- setdiff(rownames(VAFcalls), majority)
+# recurrent <- names(which(rowSums(VAFcalls > 0) > 1))
+# minor <- intersect(recurrent, majority)
+VAFrec <- VAFcalls[minority,]
+
+# add in the population frequencies of each variant in each subject
+subj <- sapply(strsplit(colnames(VAFrec), "_"), `[`, 1)
+ncells <- table(subj)
+bycell <- t(rowsum(t(VAFrec), subj))
+bulked <- sweep(bycell, 2, ncells, `/`)
+bulksubjs <- sub("SU070", "Patient1_AML", 
+                 sub("SU353", "Patient2_AML", 
+                     sub("PB1022", "Donor1",
+                         sub("BM1077", "Donor2", 
+                             colnames(bulked)))))
+nonHaplo <- which(rowMaxs(bulked) <= 0.7 & rowMaxs(bulked) >= 0.03)
+keep <- which(colSums(VAFrec[nonHaplo,]) > 0)
+topBcov <- data.frame(Leukemic=ifelse(grepl("Patient", bulksubjs),"Yes","No"))
+botBcov <- data.frame(Subject=sapply(strsplit(bulksubjs, "_"), `[`, 1))
+topBulk <- HeatmapAnnotation(topBcov, col=allCols)
+botBulk <- HeatmapAnnotation(botBcov, col=allCols)
+bulkmax <- colnames(bulked)[apply(bulked[nonHaplo,], 1, which.max)]
+bulkmax <- sub("SU070", "Patient1", sub("SU353", "Patient2",
+                   sub("PB1022", "Donor1", sub("BM1077", "Donor2", bulkmax))))
+bulkmax <- paste0(bulkmax, "-\ncentric")
+scVAFcol <- colorRamp2(c(0, 0.5, 1), c("blue", "white", "red"))
+bulkVAFcol <- colorRamp2(c(0, 0.5, 1), c("darkblue", "white", "darkred"))
+topC <- data.frame(Leukemic=ifelse(grepl("Patient", allSubjs[keep]),"Yes","No"))
+botC <- data.frame(Subject=sapply(strsplit(allSubjs[keep], "_"), `[`, 1))
+allCols <- list(
+  Subject=c("Patient1"="lightblue", "Patient2"="springgreen",
+            "Donor1"="goldenrod", "Donor2"="rosybrown"),
+  Leukemic=c("Yes"="darkred", "No"="white")
+)
+topAnno <- HeatmapAnnotation(topC, col=allCols)
+botAnno <- HeatmapAnnotation(botC, col=allCols)
+
+Heatmap(VAFrec[nonHaplo, keep],
+        split=bulkmax,
+        col=scVAFcol,
+        name="cell VAF", 
+        width=unit(20, "cm"), 
+        row_names_side="left", 
+        show_column_names=FALSE,
+        bottom_annotation=botAnno, top_annotation=topAnno, 
+        clustering_distance_columns="manhattan",
+        clustering_method_columns="ward.D2",
+        clustering_distance_rows="manhattan",
+        clustering_method_rows="ward.D2") + 
+Heatmap(bulked[nonHaplo,],
+        split=bulkmax,
+        col=bulkVAFcol,
+        width=unit(2, "cm"), 
+        name="bulk VAF", 
+        show_row_names=FALSE, 
+        top_annotation=topBulk, 
+        show_column_names=FALSE,
+        bottom_annotation=botBulk, 
+        clustering_distance_columns="manhattan",
+        clustering_method_columns="ward.D2",
+        clustering_distance_rows="manhattan",
+        clustering_method_rows="ward.D2") 
+labelAnnotations(topAnno, botAnno)
+dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.pdf") 
 
