@@ -300,3 +300,41 @@ Heatmap(bulked[nonHaplo,],
 labelAnnotations(topAnno, botAnno)
 dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.pdf") 
 
+# for kicks, let's see where they land 
+vars <- rownames(bulked[nonHaplo,])
+asGR <- function(mtVars) { 
+  sites <- sub("rCRS:m.", "", sub("(ins|del|>).*$", "", mtVars))
+  site1 <- as.integer(sapply(strsplit(sites, "_"), `[`, 1))
+  site2 <- as.integer(sapply(strsplit(sites, "_"), `[`, 2))
+  site2 <- ifelse(is.na(site2), site1, site2)
+  startSite <- pmin(site1, site2)
+  endSite <- pmax(site1, site2) 
+  aDF <- data.frame(chrom=rep("chrM", length(sites)),
+                    chromStart=startSite,
+                    chromEnd=endSite,
+                    name=mtVars)
+  makeGRangesFromDataFrame(aDF, keep=TRUE) 
+}
+
+data("mtGenes", package="MTseeker") 
+subsetByOverlaps(mtGenes, asGR(vars))
+# GRanges object with 9 ranges and 1 metadata column:
+#           seqnames      ranges strand |                     DNA
+#              <Rle>   <IRanges>  <Rle> |          <DNAStringSet>
+#    MT-ND1     chrM   3307-4262      + | ATACCCATGG...CTCAAACCTA
+#    MT-CO1     chrM   5904-7445      + | ATGTTCGCCG...AAAATCTAGA
+#    MT-CO2     chrM   7586-8269      + | ATGGCACATG...TACCCTATAG
+#   MT-ATP8     chrM   8366-8572      + | ATGCCCCAAC...ACAATCCTAG
+#    MT-CO3     chrM   9207-9990      + | ATGACCCACC...TGAGGGTCTT
+#    MT-ND3     chrM 10059-10404      + | ATAAACTTCG...TGAACCGAAT
+#    MT-ND4     chrM 10760-12137      + | ATGCTAAAAC...TTTTCCTCTT
+#    MT-ND5     chrM 12337-14148      + | ATAACCATGC...AATCACATAA
+#    MT-CYB     chrM 14747-15887      + | ATGACCCCAA...AAATGGGCCT
+#   -------
+#   seqinfo: 1 sequence (1 circular) from rCRS genome
+
+scVarsToPlot <- MVRangesList(lapply(scFilt, subset, names %in% vars))
+plot(scVarsToPlot) 
+title("Heteroplasmic mtDNA variants at single-cell resolution")
+dev.copy2pdf(file="scMT.VAFs.mtCircos.pdf") 
+
