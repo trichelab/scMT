@@ -127,6 +127,9 @@ labelAnnotations(topAnno, botAnno)
 # save the output 
 dev.copy2pdf(file="scATAC.VAFs.allSubjects.HighQualityFiltered.pdf") 
 
+# needed for export of consensus genotypes:
+library(rtracklayer) # for export()
+
 # Suggestion from Xiaowu: focus on indels in coding regions / LoF variants
 # 
 # filter: germline variants (e.g. haplogroup-specific), common indels (2400x)
@@ -164,6 +167,9 @@ scConsensus <- function(mvrl, name="rCRS") {
   names(consensus) <- name
   return(consensus)
 }
+
+# load scMT calls
+scMTvars <- readRDS("scMTvars.rds") 
 
 # Let's see if we get roughly the same result from the single cells, aggregated:
 SU353sc <- scMTvars[grep("SU353", names(scMTvars))] 
@@ -299,6 +305,65 @@ Heatmap(bulked[nonHaplo,],
         clustering_method_rows="ward.D2") 
 labelAnnotations(topAnno, botAnno)
 dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.pdf") 
+
+# now do it again but without clustering and with single/bulk labels
+library(sesamizeGEO) # install
+kept <- which(colSums(VAFrec[nonHaplo,]) > 0)
+alias <- c(SU353="Patient2", SU070="Patient1",
+           PB1022="Donor1", BM1077="Donor2")
+keep <- c(grep("SU353", names(kept), value=TRUE),
+          grep("SU070", names(kept), value=TRUE), 
+          grep("BM1077", names(kept), value=TRUE),
+          grep("PB1022", names(kept), value=TRUE))
+allCols$Leukemic <- c("Yes"="black", "No"="white")
+allCols$Fraction <- c("Progenitor"="darkviolet", "Effector"="violet")
+topC <- data.frame(Leukemic=ifelse(grepl("SU", keep),"Yes","No"))
+botC <- data.frame(Subject=alias[sapply(strsplit(keep, "_"), `[`, 1)])
+topAnno <- HeatmapAnnotation(topC, col=allCols)
+botAnno <- HeatmapAnnotation(botC, col=allCols)
+bulked <- bulked[, c("SU353","SU070","BM1077","PB1022")]
+bulksubjs <- c("Patient2_AML","Patient1_AML","Donor2","Donor1")
+topBcov <- data.frame(Leukemic=ifelse(grepl("Patient", bulksubjs),"Yes","No"))
+botBcov <- data.frame(Subject=sapply(strsplit(bulksubjs, "_"), `[`, 1))
+topBulk <- HeatmapAnnotation(topBcov, col=allCols)
+botBulk <- HeatmapAnnotation(botBcov, col=allCols)
+
+Heatmap(VAFrec[nonHaplo, keep],
+        split=bulkmax,
+        col=scVAFcol,
+        name="cell VAF", 
+        show_row_dend=FALSE,
+        width=unit(20, "cm"), 
+        row_names_side="left", 
+        show_column_names=FALSE,
+        bottom_annotation=botAnno, 
+        top_annotation=topAnno, 
+        cluster_columns=FALSE,
+        clustering_distance_rows="manhattan",
+        clustering_method_rows="ward.D2",
+        column_title=paste("Single-cell mtDNA variant allele frequency (VAF),",
+                           "one cell per column"), 
+        column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+        column_title_side="bottom") + 
+Heatmap(bulked[nonHaplo,],
+        split=bulkmax,
+        col=bulkVAFcol,
+        width=unit(2.5, "cm"), 
+        name="bulk VAF", 
+        show_row_names=FALSE, 
+        top_annotation=topBulk, 
+        show_column_names=FALSE,
+        bottom_annotation=botBulk, 
+        cluster_columns=FALSE,
+        clustering_distance_rows="manhattan",
+        clustering_method_rows="ward.D2",
+        column_title = "Bulk VAF", 
+        column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+        column_title_side="bottom")
+labelAnnotations(NA, botAnno)
+
+# all set?
+dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.revised.pdf") 
 
 # for kicks, let's see where they land 
 vars <- rownames(bulked[nonHaplo,])
