@@ -1,7 +1,7 @@
 # scMT
 single-cell mitochondrial variant calling data
 
-<img align="left" src="scMT.VAFs.singleCellVsBulk.png">
+<img align="left" src="scMT.VAFs.singleCellVsBulk.revised.png">
 <br />
 <img align="left" src="scMT.VAFs.mtCircos.png">
 <br /> 
