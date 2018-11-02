@@ -46,4 +46,3 @@ p2 + geom_sina() +
   ggtitle("Mitochondrial reads in single-cell ATACseq") + 
   NULL
 ggsave("mtDepth.png", type="cairo")
-
