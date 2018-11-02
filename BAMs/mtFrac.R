@@ -30,3 +30,20 @@ p + geom_sina() +
   ggtitle("Mitochondrial reads in single-cell ATACseq") + 
   NULL
 ggsave("mtFrac.png", type="cairo")
+
+# read depth
+scMTvars <- filterMT(readRDS("../scMTvars.rds")) 
+mtDepths <- data.frame(mtDepth=genomeCoverage(scMTvars), 
+                       subject=elts(names(scMTvars)),
+                       celltype=elts(names(scMTvars), "_", 2))
+
+p2 <- ggplot(mtDepths, aes(x=subject, color=celltype, y=mtDepth, alpha=0.5))
+p2 + geom_sina() + 
+  ylab("Mitochondrial coverage depth") +
+  theme_tufte(base_size=18) + 
+  guides(alpha=FALSE) + 
+  geom_hline(yintercept=20, linetype=2) + 
+  ggtitle("Mitochondrial reads in single-cell ATACseq") + 
+  NULL
+ggsave("mtDepth.png", type="cairo")
+
