@@ -213,6 +213,7 @@ screenVars <- getVars(SU353sc_consensus) %union%
 
 # So it seems like the thing to do is to sweep out common variants from each
 # and then plot like before
+source("filterMTvars.R")
 scFilt <- sapply(filterMT(scMT), function(x) x[!names(x) %in% screenVars])
 
 allOtherVariants <- Reduce(union, sapply(scFilt, names))
@@ -304,10 +305,10 @@ Heatmap(bulked[nonHaplo,],
         clustering_distance_rows="manhattan",
         clustering_method_rows="ward.D2") 
 labelAnnotations(topAnno, botAnno)
-dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.pdf") 
+# dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.pdf") 
 
 # now do it again but without clustering and with single/bulk labels
-library(sesamizeGEO) # install
+library(miser) # BiocManager::install("ttriche/miser") 
 kept <- which(colSums(VAFrec[nonHaplo,]) > 0)
 alias <- c(SU353="Patient2", SU070="Patient1",
            PB1022="Donor1", BM1077="Donor2")
@@ -365,8 +366,57 @@ labelAnnotations(NA, botAnno)
 # all set?
 dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.revised.pdf") 
 
+# No, we are not all set. Only plot the leukemic samples for now.
+nhap <- rownames(VAFrec)[nonHaplo]
+bulkmax <- colnames(bulked)[apply(bulked[nhap,], 1, which.max)]
+kept <- grep("SU", bulkmax)
+nhapAML <- nhap[kept]
+AMLs <- rev(grep("SU", colnames(VAFrec), value=TRUE))
+alias <- c(SU353="Patient2", SU070="Patient1")
+botC <- data.frame(Subject=alias[sapply(strsplit(AMLs, "_"), `[`, 1)])
+botAnno <- HeatmapAnnotation(botC, col=allCols, show_legend=FALSE)
+bulkedAML <- bulked[nhapAML, c("SU353","SU070")]
+bulksubjs <- c("Patient2_AML","Patient1_AML")
+botBcov <- data.frame(Subject=sapply(strsplit(bulksubjs, "_"), `[`, 1))
+botBulk <- HeatmapAnnotation(botBcov, col=allCols, show_legend=FALSE)
+
+Heatmap(VAFrec[nhapAML, AMLs],
+        split=paste(alias[bulkmax[kept]], "variants"),
+        col=scVAFcol,
+        name="cell VAF", 
+        show_row_dend=FALSE,
+        width=unit(20, "cm"), 
+        row_names_side="left", 
+        show_column_names=FALSE,
+        bottom_annotation=botAnno, 
+        cluster_columns=FALSE,
+        clustering_distance_rows="manhattan",
+        clustering_method_rows="ward.D2",
+        column_title=paste("Single-cell mtDNA variant allele frequency (VAF),",
+                           "one cell per column"),
+        column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+        column_title_side="bottom") + 
+Heatmap(bulkedAML,
+        split=alias[bulkmax[kept]],
+        col=bulkVAFcol,
+        width=unit(2.5, "cm"), 
+        name="bulk VAF", 
+        show_row_names=FALSE, 
+        show_column_names=FALSE,
+        bottom_annotation=botBulk, 
+        cluster_columns=FALSE,
+        clustering_distance_rows="manhattan",
+        clustering_method_rows="ward.D2",
+        column_title = "Bulk VAF", 
+        column_title_gp = gpar(fontsize = 16, fontface = "bold"),
+        column_title_side="bottom")
+labelAnnotations(NA, botAnno)
+dev.copy2pdf(file="scMT.VAFs.singleCellVsBulk.leukemicOnly.pdf") 
+
+
+
 # for kicks, let's see where they land 
-vars <- rownames(bulked[nonHaplo,])
+vars <- nhapAML
 asGR <- function(mtVars) { 
   sites <- sub("rCRS:m.", "", sub("(ins|del|>).*$", "", mtVars))
   site1 <- as.integer(sapply(strsplit(sites, "_"), `[`, 1))
@@ -378,7 +428,9 @@ asGR <- function(mtVars) {
                     chromStart=startSite,
                     chromEnd=endSite,
                     name=mtVars)
-  makeGRangesFromDataFrame(aDF, keep=TRUE) 
+  res <- makeGRangesFromDataFrame(aDF, keep=TRUE)
+  genome(res) <- "rCRS"
+  return(res)
 }
 
 data("mtGenes", package="MTseeker") 

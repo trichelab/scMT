@@ -20,9 +20,7 @@ message("This function is now part of MTseeker; use that version instead!")
 filterMTvars <- function(vars, fp=TRUE, NuMT=0.03, covg=20) {
 
   if (fp) { 
-#    data(fpFilter_RSRS, package="MTseeker")  
     data(fpFilter_Triska, package="MTseeker")
-#    fpRegions <- reduce(c(fpFilter_RSRS, fpFilter_Triska))
     fpFilter <- subset(gaps(fpFilter_Triska), strand == "*")
   } else { 
     fpFilter <- GRanges("chrM", IRanges(start=1, end=16569), strand="*")
@@ -31,7 +29,7 @@ filterMTvars <- function(vars, fp=TRUE, NuMT=0.03, covg=20) {
   if (is(vars, "MVRanges")) {
     subset(subsetByOverlaps(vars, fpFilter), VAF >= NuMT & PASS)
   } else if (is(vars, "MVRangesList")) {
-    MVRangesList(lapply(vars[coverage(vars)>=covg], 
+    MVRangesList(lapply(vars[genomeCoverage(vars)>=covg], 
                         filterMTvars, fp=fp, NuMT=NuMT))
   } else { 
     stop("This function is only meant for MVRanges and MVRangesList objects.")
